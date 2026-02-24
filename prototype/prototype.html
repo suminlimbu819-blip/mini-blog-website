@@ -1,0 +1,487 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inkwell — A Mini Blog</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #f5f0e8;
+      --ink: #1a1612;
+      --rust: #c0440e;
+      --tan: #d4c5a9;
+      --muted: #7a6f63;
+      --border: #ddd5c4;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE TEXTURE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999;
+      opacity: 0.5;
+    }
+
+    /* ── HEADER ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 5vw;
+      position: sticky; top: 0;
+      background: rgba(245,240,232,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-style: italic;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .logo span { color: var(--rust); }
+
+    nav { display: flex; gap: 2rem; }
+    nav a {
+      text-decoration: none;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--rust); }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 80px 5vw 60px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: end;
+      animation: fadeUp 0.8s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--rust);
+      margin-bottom: 1rem;
+    }
+
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.8rem, 5vw, 4.5rem);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--rust);
+    }
+
+    .hero-meta {
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 1.5rem;
+    }
+
+    .hero-excerpt {
+      font-size: 1.05rem;
+      color: var(--muted);
+      max-width: 420px;
+      margin-bottom: 2rem;
+      line-height: 1.8;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.75rem;
+      background: var(--ink);
+      color: var(--cream);
+      text-decoration: none;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn:hover { background: var(--rust); transform: translateY(-2px); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      display: flex; align-items: center; gap: 1.5rem;
+      padding: 2.5rem 5vw;
+      border-bottom: 1px solid var(--border);
+    }
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+    .divider-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── GRID ── */
+    .posts-grid {
+      padding: 0 5vw 80px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      border-left: 1px solid var(--border);
+    }
+
+    .post-card {
+      padding: 2.5rem 2rem;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.25s;
+      animation: fadeUp 0.7s ease both;
+    }
+    .post-card:nth-child(1) { animation-delay: 0.1s; }
+    .post-card:nth-child(2) { animation-delay: 0.2s; }
+    .post-card:nth-child(3) { animation-delay: 0.3s; }
+    .post-card:nth-child(4) { animation-delay: 0.4s; }
+    .post-card:nth-child(5) { animation-delay: 0.5s; }
+    .post-card:nth-child(6) { animation-delay: 0.6s; }
+
+    .post-card:hover { background: rgba(192,68,14,0.04); }
+
+    .post-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--rust);
+      margin-bottom: 0.75rem;
+    }
+
+    .post-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.01em;
+    }
+
+    .post-excerpt {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.75;
+      margin-bottom: 1.5rem;
+    }
+
+    .post-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      text-transform: uppercase;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+    }
+
+    .read-link {
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 500;
+      position: relative;
+    }
+    .read-link::after {
+      content: '';
+      position: absolute; bottom: -1px; left: 0; right: 0;
+      height: 1px; background: var(--rust);
+      transform: scaleX(0); transform-origin: left;
+      transition: transform 0.25s;
+    }
+    .read-link:hover::after { transform: scaleX(1); }
+
+    /* ── WIDE CARD (spans 2 cols) ── */
+    .post-card.wide {
+      grid-column: span 2;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    .post-card.wide .post-title { font-size: 1.8rem; }
+    .post-card.wide .post-content { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+
+    /* ── SIDEBAR STRIP ── */
+    .sidebar-strip {
+      padding: 2.5rem 5vw;
+      background: var(--ink);
+      color: var(--cream);
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .subscribe-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      font-style: italic;
+      margin-bottom: 0.5rem;
+    }
+
+    .subscribe-sub {
+      font-size: 0.85rem;
+      opacity: 0.6;
+    }
+
+    .subscribe-form {
+      display: flex;
+      gap: 0;
+      grid-column: span 1;
+    }
+
+    .subscribe-form input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-right: none;
+      color: var(--cream);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+    }
+    .subscribe-form input::placeholder { opacity: 0.4; }
+
+    .subscribe-form button {
+      padding: 0.75rem 1.25rem;
+      background: var(--rust);
+      color: white;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .subscribe-form button:hover { opacity: 0.85; }
+
+    .stat { text-align: center; }
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: var(--rust);
+    }
+    .stat-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.5;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 2.5rem 5vw;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-copy {
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .footer-nav { display: flex; gap: 1.5rem; }
+    .footer-nav a {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .footer-nav a:hover { color: var(--rust); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; gap: 2rem; }
+      .posts-grid { grid-template-columns: 1fr 1fr; }
+      .post-card.wide { grid-column: span 2; }
+      .sidebar-strip { grid-template-columns: 1fr; gap: 2rem; }
+    }
+
+    @media (max-width: 600px) {
+      .posts-grid { grid-template-columns: 1fr; border-left: none; }
+      .post-card.wide { grid-column: span 1; grid-template-columns: 1fr; }
+      footer { flex-direction: column; gap: 1rem; text-align: center; }
+      nav { gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <a href="#" class="logo">Ink<span>well</span></a>
+    <nav>
+      <a href="#">Essays</a>
+      <a href="#">Culture</a>
+      <a href="#">Tech</a>
+      <a href="#">About</a>
+    </nav>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-left">
+      <p class="hero-label">Featured Essay — Issue No. 42</p>
+      <h1 class="hero-title">The Quiet Art of <em>Slow</em> Thinking</h1>
+      <p class="hero-meta">By Mara Voss &nbsp;·&nbsp; Feb 20, 2026 &nbsp;·&nbsp; 8 min read</p>
+    </div>
+    <div class="hero-right">
+      <p class="hero-excerpt">In a world obsessed with instant answers and hot takes, some of the most original minds have rediscovered an old practice: sitting with an idea long enough to actually understand it.</p>
+      <a href="#" class="btn">Read the Essay →</a>
+    </div>
+  </section>
+
+  <!-- DIVIDER -->
+  <div class="divider">
+    <div class="divider-line"></div>
+    <span class="divider-text">Latest from the blog</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <!-- POSTS GRID -->
+  <main class="posts-grid">
+
+    <!-- Wide card -->
+    <article class="post-card wide">
+      <div>
+        <p class="post-tag">✦ Technology</p>
+        <h2 class="post-title">Why Every Developer Should Learn to Read Code They Didn't Write</h2>
+      </div>
+      <div class="post-content">
+        <p class="post-excerpt">Reading unfamiliar code is humbling, enlightening, and one of the fastest ways to grow. Here's how to make it a habit that actually sticks—and why it matters more than ever in the age of AI-assisted development.</p>
+        <div class="post-footer">
+          <span>Mar 1, 2026 · 6 min</span>
+          <a href="#" class="read-link">Read →</a>
+        </div>
+      </div>
+    </article>
+
+    <!-- Normal cards -->
+    <article class="post-card">
+      <p class="post-tag">✦ Culture</p>
+      <h2 class="post-title">The New Nostalgia: Why We're All Craving Analog Again</h2>
+      <p class="post-excerpt">From vinyl records to handwritten letters, the analog revival isn't just aesthetic — it's a quiet rebellion against endless scroll.</p>
+      <div class="post-footer">
+        <span>Feb 28, 2026 · 4 min</span>
+        <a href="#" class="read-link">Read →</a>
+      </div>
+    </article>
+
+    <article class="post-card">
+      <p class="post-tag">✦ Essays</p>
+      <h2 class="post-title">On the Courage of the Unfinished Project</h2>
+      <p class="post-excerpt">Leaving something incomplete isn't failure — sometimes it's the most honest thing you can do. A meditation on creative abandonment.</p>
+      <div class="post-footer">
+        <span>Feb 25, 2026 · 5 min</span>
+        <a href="#" class="read-link">Read →</a>
+      </div>
+    </article>
+
+    <article class="post-card">
+      <p class="post-tag">✦ Design</p>
+      <h2 class="post-title">Negative Space Is the Point, Not the Absence of One</h2>
+      <p class="post-excerpt">Great design communicates as much through what it removes as what it keeps. A deep dive into emptiness as a deliberate choice.</p>
+      <div class="post-footer">
+        <span>Feb 22, 2026 · 3 min</span>
+        <a href="#" class="read-link">Read →</a>
+      </div>
+    </article>
+
+    <article class="post-card">
+      <p class="post-tag">✦ Technology</p>
+      <h2 class="post-title">The Second Brain Myth: Why Your Notes App Won't Save You</h2>
+      <p class="post-excerpt">Productivity systems are seductive. But the real work of thinking can't be outsourced to Notion or Obsidian — it has to happen in your head.</p>
+      <div class="post-footer">
+        <span>Feb 19, 2026 · 7 min</span>
+        <a href="#" class="read-link">Read →</a>
+      </div>
+    </article>
+
+    <article class="post-card">
+      <p class="post-tag">✦ Culture</p>
+      <h2 class="post-title">Reading in Public: A Lost Social Act Worth Reviving</h2>
+      <p class="post-excerpt">Once a signal of intellectualism, reading openly in cafés and parks has become a quiet act of resistance. Let's make it ordinary again.</p>
+      <div class="post-footer">
+        <span>Feb 15, 2026 · 4 min</span>
+        <a href="#" class="read-link">Read →</a>
+      </div>
+    </article>
+
+  </main>
+
+  <!-- SUBSCRIBE STRIP -->
+  <section class="sidebar-strip">
+    <div>
+      <p class="subscribe-title">Words worth reading,<br>in your inbox.</p>
+      <p class="subscribe-sub">New essays every Tuesday. No spam, ever.</p>
+    </div>
+    <form class="subscribe-form" onsubmit="event.preventDefault(); this.querySelector('input').value=''; this.querySelector('button').textContent='✓ Done';">
+      <input type="email" placeholder="your@email.com" required/>
+      <button type="submit">Subscribe</button>
+    </form>
+    <div class="stat">
+      <div class="stat-num">12k</div>
+      <div class="stat-label">Readers</div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p class="footer-copy">© 2026 Inkwell. A blog about ideas.</p>
+    <nav class="footer-nav">
+      <a href="#">Twitter</a>
+      <a href="#">RSS</a>
+      <a href="#">Archive</a>
+      <a href="#">Contact</a>
+    </nav>
+  </footer>
+
+</body>
+</html>
