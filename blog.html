@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inkwell — A Mini Blog</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #f5f0e8; --ink: #1a1612; --rust: #c0440e;
+      --tan: #d4c5a9;   --muted: #7a6f63; --border: #ddd5c4;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--cream); color: var(--ink);
+      font-family: 'DM Sans', sans-serif; font-weight: 300;
+      line-height: 1.7; overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: 0.5;
+    }
+
+    /* HEADER */
+    header {
+      border-bottom: 1px solid var(--border); padding: 0 5vw;
+      position: sticky; top: 0; background: rgba(245,240,232,0.92);
+      backdrop-filter: blur(12px); z-index: 100;
+      display: flex; align-items: center; justify-content: space-between; height: 64px;
+    }
+    .logo { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-style: italic; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+    .logo span { color: var(--rust); }
+    .header-right { display: flex; align-items: center; gap: 2rem; }
+    nav { display: flex; gap: 2rem; }
+    nav a { text-decoration: none; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); transition: color 0.2s; }
+    nav a:hover { color: var(--rust); }
+
+    /* AUTH BUTTONS */
+    .auth-btns { display: flex; gap: 0.5rem; }
+    .btn-login {
+      padding: 0.45rem 1.1rem; border: 1px solid var(--border); background: transparent;
+      color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+      letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s;
+    }
+    .btn-login:hover { background: var(--ink); color: var(--cream); }
+    .btn-signup {
+      padding: 0.45rem 1.1rem; border: none; background: var(--rust); color: white;
+      font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+      letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-signup:hover { opacity: 0.85; }
+
+    /* USER MENU */
+    .user-menu { position: relative; }
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--rust); color: white;
+      font-size: 0.85rem; font-weight: 500; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: opacity 0.2s;
+    }
+    .user-avatar:hover { opacity: 0.85; }
+    .user-dropdown {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      background: var(--cream); border: 1px solid var(--border); min-width: 190px;
+      box-shadow: 0 8px 32px rgba(26,22,18,0.12); display: none; animation: dropIn 0.18s ease;
+    }
+    @keyframes dropIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .user-menu.open .user-dropdown { display: block; }
+    .user-dropdown-header { padding: 1rem 1.2rem 0.75rem; border-bottom: 1px solid var(--border); }
+    .user-dropdown-name { font-weight: 500; font-size: 0.9rem; }
+    .user-dropdown-email { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+    .user-dropdown a, .drop-link {
+      display: block; width: 100%; text-align: left; padding: 0.65rem 1.2rem;
+      font-size: 0.82rem; color: var(--ink); text-decoration: none;
+      background: none; border: none; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.15s;
+    }
+    .user-dropdown a:hover, .drop-link:hover { background: rgba(192,68,14,0.07); }
+    .drop-divider { height: 1px; background: var(--border); margin: 0.25rem 0; }
+    .drop-logout { color: var(--rust) !important; }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(26,22,18,0.55);
+      backdrop-filter: blur(4px); z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--cream); width: 100%; max-width: 420px; padding: 2.5rem;
+      position: relative; transform: translateY(20px) scale(0.98);
+      transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 24px 64px rgba(26,22,18,0.2);
+    }
+    .modal-overlay.active .modal { transform: translateY(0) scale(1); }
+    .modal-close {
+      position: absolute; top: 1.25rem; right: 1.25rem; background: none; border: none;
+      font-size: 1.2rem; color: var(--muted); cursor: pointer; line-height: 1; transition: color 0.2s;
+    }
+    .modal-close:hover { color: var(--rust); }
+
+    /* TABS */
+    .modal-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+    .modal-tab {
+      flex: 1; padding: 0.75rem 0; background: none; border: none;
+      font-family: 'DM Sans', sans-serif; font-size: 0.78rem;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s, border-color 0.2s;
+    }
+    .modal-tab.active { color: var(--rust); border-bottom-color: var(--rust); }
+
+    /* FORM PANELS */
+    .modal-panel { display: none; }
+    .modal-panel.active { display: block; }
+    .modal-eyebrow { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-style: italic; margin-bottom: 0.4rem; }
+    .modal-sub { font-size: 0.83rem; color: var(--muted); margin-bottom: 1.75rem; }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; }
+    .form-group input {
+      width: 100%; padding: 0.75rem 1rem; background: white; border: 1px solid var(--border);
+      color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: var(--rust); }
+    .form-group input.error { border-color: var(--rust); }
+    .form-error { font-size: 0.73rem; color: var(--rust); margin-top: 0.3rem; display: none; }
+    .form-error.visible { display: block; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .modal-submit {
+      width: 100%; padding: 0.85rem; background: var(--ink); color: var(--cream); border: none;
+      font-family: 'DM Sans', sans-serif; font-size: 0.78rem; letter-spacing: 0.12em;
+      text-transform: uppercase; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s, transform 0.15s;
+    }
+    .modal-submit:hover { background: var(--rust); transform: translateY(-1px); }
+    .modal-forgot {
+      display: block; text-align: right; font-size: 0.72rem; color: var(--muted);
+      text-decoration: none; margin-top: -0.5rem; margin-bottom: 1rem; cursor: pointer; transition: color 0.2s;
+    }
+    .modal-forgot:hover { color: var(--rust); }
+    .modal-divider { display: flex; align-items: center; gap: 1rem; margin: 1.25rem 0; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.08em; }
+    .modal-divider::before, .modal-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .btn-social {
+      width: 100%; padding: 0.75rem; background: white; border: 1px solid var(--border);
+      color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 0.6rem; transition: background 0.2s; margin-bottom: 0.6rem;
+    }
+    .btn-social:hover { background: #f0ece4; }
+    .btn-social svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* SUCCESS */
+    .modal-success { display: none; text-align: center; padding: 2rem 0; }
+    .modal-success.visible { display: block; }
+    .success-icon { font-size: 2.5rem; margin-bottom: 1rem; color: var(--rust); }
+    .success-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-style: italic; margin-bottom: 0.5rem; }
+    .success-sub { font-size: 0.85rem; color: var(--muted); }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--ink); color: var(--cream); padding: 0.75rem 1.5rem;
+      font-size: 0.82rem; letter-spacing: 0.04em; z-index: 9000;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* HERO */
+    .hero {
+      padding: 80px 5vw 60px; border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: end;
+      animation: fadeUp 0.8s ease both;
+    }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+    .hero-label { font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--rust); margin-bottom: 1rem; }
+    .hero-title { font-family: 'Playfair Display', serif; font-size: clamp(2.8rem,5vw,4.5rem); font-weight: 900; line-height: 1.1; letter-spacing: -0.03em; }
+    .hero-title em { font-style: italic; color: var(--rust); }
+    .hero-meta { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 1.5rem; }
+    .hero-excerpt { font-size: 1.05rem; color: var(--muted); max-width: 420px; margin-bottom: 2rem; line-height: 1.8; }
+    .btn { display: inline-block; padding: 0.75rem 1.75rem; background: var(--ink); color: var(--cream); text-decoration: none; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; transition: background 0.2s, transform 0.15s; }
+    .btn:hover { background: var(--rust); transform: translateY(-2px); }
+
+    /* DIVIDER */
+    .divider { display: flex; align-items: center; gap: 1.5rem; padding: 2.5rem 5vw; border-bottom: 1px solid var(--border); }
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+    .divider-text { font-family: 'DM Mono', monospace; font-size: 0.68rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+
+    /* POSTS */
+    .posts-grid { padding: 0 5vw 80px; display: grid; grid-template-columns: repeat(3,1fr); gap: 0; border-left: 1px solid var(--border); }
+    .post-card { padding: 2.5rem 2rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.25s; animation: fadeUp 0.7s ease both; }
+    .post-card:nth-child(1){animation-delay:.1s} .post-card:nth-child(2){animation-delay:.2s}
+    .post-card:nth-child(3){animation-delay:.3s} .post-card:nth-child(4){animation-delay:.4s}
+    .post-card:nth-child(5){animation-delay:.5s} .post-card:nth-child(6){animation-delay:.6s}
+    .post-card:hover { background: rgba(192,68,14,0.04); }
+    .post-tag { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--rust); margin-bottom: 0.75rem; }
+    .post-title { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.75rem; letter-spacing: -0.01em; }
+    .post-excerpt { font-size: 0.88rem; color: var(--muted); line-height: 1.75; margin-bottom: 1.5rem; }
+    .post-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; border-top: 1px solid var(--border); padding-top: 1rem; }
+    .read-link { color: var(--ink); text-decoration: none; font-weight: 500; position: relative; }
+    .read-link::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 1px; background: var(--rust); transform: scaleX(0); transform-origin: left; transition: transform 0.25s; }
+    .read-link:hover::after { transform: scaleX(1); }
+    .post-card.wide { grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+    .post-card.wide .post-title { font-size: 1.8rem; }
+    .post-card.wide .post-content { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+
+    /* SUBSCRIBE */
+    .sidebar-strip { padding: 2.5rem 5vw; background: var(--ink); color: var(--cream); display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 3rem; align-items: center; }
+    .subscribe-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-style: italic; margin-bottom: 0.5rem; }
+    .subscribe-sub { font-size: 0.85rem; opacity: 0.6; }
+    .subscribe-form { display: flex; gap: 0; }
+    .subscribe-form input { flex: 1; padding: 0.75rem 1rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-right: none; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none; }
+    .subscribe-form input::placeholder { opacity: 0.4; }
+    .subscribe-form button { padding: 0.75rem 1.25rem; background: var(--rust); color: white; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; }
+    .subscribe-form button:hover { opacity: 0.85; }
+    .stat { text-align: center; }
+    .stat-num { font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 900; color: var(--rust); }
+    .stat-label { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; }
+
+    /* FOOTER */
+    footer { padding: 2.5rem 5vw; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .footer-copy { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }
+    .footer-nav { display: flex; gap: 1.5rem; }
+    .footer-nav a { font-size: 0.75rem; color: var(--muted); text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.2s; }
+    .footer-nav a:hover { color: var(--rust); }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; gap: 2rem; }
+      .posts-grid { grid-template-columns: 1fr 1fr; }
+      .post-card.wide { grid-column: span 2; }
+      .sidebar-strip { grid-template-columns: 1fr; gap: 2rem; }
+    }
+    @media (max-width: 600px) {
+      .posts-grid { grid-template-columns: 1fr; border-left: none; }
+      .post-card.wide { grid-column: span 1; grid-template-columns: 1fr; }
+      footer { flex-direction: column; gap: 1rem; text-align: center; }
+      nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <a href="#" class="logo">Ink<span>well</span></a>
+    <div class="header-right">
+      <nav>
+        <a href="#">Essays</a>
+        <a href="#">Culture</a>
+        <a href="#">Tech</a>
+        <a href="#">About</a>
+      </nav>
+
+      <!-- Logged-out: Login + Signup buttons -->
+      <div class="auth-btns" id="authButtons">
+        <button class="btn-login" onclick="openModal('login')">Log In</button>
+        <button class="btn-signup" onclick="openModal('signup')">Sign Up</button>
+      </div>
+
+      <!-- Logged-in: Avatar + Dropdown -->
+      <div class="user-menu" id="userMenu" style="display:none;">
+        <button class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">?</button>
+        <div class="user-dropdown" id="userDropdown">
+          <div class="user-dropdown-header">
+            <div class="user-dropdown-name" id="dropdownName"></div>
+            <div class="user-dropdown-email" id="dropdownEmail"></div>
+          </div>
+          <a href="#">My Profile</a>
+          <a href="#">Saved Posts</a>
+          <a href="#">Settings</a>
+          <div class="drop-divider"></div>
+          <button class="drop-link drop-logout" onclick="handleLogout()">Log Out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════ MODAL ═══════════ -->
+  <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+    <div class="modal" role="dialog" aria-modal="true">
+      <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+
+      <div class="modal-tabs" id="modalTabs">
+        <button class="modal-tab active" id="tabLogin"  onclick="switchTab('login')">Log In</button>
+        <button class="modal-tab"        id="tabSignup" onclick="switchTab('signup')">Sign Up</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div class="modal-panel active" id="panelLogin">
+        <p class="modal-eyebrow">Welcome back.</p>
+        <p class="modal-sub">Sign in to continue reading Inkwell.</p>
+
+        <button class="btn-social" onclick="socialLogin('Google')">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Continue with Google
+        </button>
+        <button class="btn-social" onclick="socialLogin('GitHub')">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          Continue with GitHub
+        </button>
+
+        <div class="modal-divider">or email</div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email"/>
+            <p class="form-error" id="loginEmailErr">Please enter a valid email.</p>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password"/>
+            <p class="form-error" id="loginPassErr">Password is required.</p>
+          </div>
+          <a class="modal-forgot" onclick="showForgot()">Forgot your password?</a>
+          <button type="submit" class="modal-submit">Log In →</button>
+        </form>
+      </div>
+
+      <!-- SIGNUP -->
+      <div class="modal-panel" id="panelSignup">
+        <p class="modal-eyebrow">Join Inkwell.</p>
+        <p class="modal-sub">Create a free account and start reading thoughtfully.</p>
+
+        <button class="btn-social" onclick="socialLogin('Google')">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Continue with Google
+        </button>
+
+        <div class="modal-divider">or email</div>
+
+        <form id="signupForm" onsubmit="handleSignup(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="signupFirst">First Name</label>
+              <input type="text" id="signupFirst" placeholder="Mara" autocomplete="given-name"/>
+              <p class="form-error" id="signupFirstErr">Required.</p>
+            </div>
+            <div class="form-group">
+              <label for="signupLast">Last Name</label>
+              <input type="text" id="signupLast" placeholder="Voss" autocomplete="family-name"/>
+              <p class="form-error" id="signupLastErr">Required.</p>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="signupEmail">Email</label>
+            <input type="email" id="signupEmail" placeholder="you@example.com" autocomplete="email"/>
+            <p class="form-error" id="signupEmailErr">Please enter a valid email.</p>
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">Password</label>
+            <input type="password" id="signupPassword" placeholder="Min. 8 characters" autocomplete="new-password"/>
+            <p class="form-error" id="signupPassErr">Must be at least 8 characters.</p>
+          </div>
+          <button type="submit" class="modal-submit">Create Account →</button>
+        </form>
+      </div>
+
+      <!-- FORGOT PASSWORD -->
+      <div class="modal-panel" id="panelForgot">
+        <p class="modal-eyebrow">Reset password.</p>
+        <p class="modal-sub">Enter your email and we'll send a reset link.</p>
+        <form id="forgotForm" onsubmit="handleForgot(event)">
+          <div class="form-group">
+            <label for="forgotEmail">Email</label>
+            <input type="email" id="forgotEmail" placeholder="you@example.com"/>
+            <p class="form-error" id="forgotEmailErr">Please enter a valid email.</p>
+          </div>
+          <button type="submit" class="modal-submit">Send Reset Link →</button>
+        </form>
+        <br/>
+        <a class="modal-forgot" style="text-align:left; display:inline-block; margin-top:0.5rem;" onclick="switchTab('login')">← Back to Log In</a>
+      </div>
+
+      <!-- SUCCESS -->
+      <div class="modal-success" id="modalSuccess">
+        <div class="success-icon">✦</div>
+        <p class="success-title" id="successTitle">You're in.</p>
+        <p class="success-sub"   id="successSub">Welcome back to Inkwell.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ═══════════ MAIN CONTENT ═══════════ -->
+  <section class="hero">
+    <div class="hero-left">
+      <p class="hero-label">Featured Essay — Issue No. 42</p>
+      <h1 class="hero-title">The Quiet Art of <em>Slow</em> Thinking</h1>
+      <p class="hero-meta">By Mara Voss &nbsp;·&nbsp; Feb 20, 2026 &nbsp;·&nbsp; 8 min read</p>
+    </div>
+    <div class="hero-right">
+      <p class="hero-excerpt">In a world obsessed with instant answers and hot takes, some of the most original minds have rediscovered an old practice: sitting with an idea long enough to actually understand it.</p>
+      <a href="#" class="btn">Read the Essay →</a>
+    </div>
+  </section>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <span class="divider-text">Latest from the blog</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <main class="posts-grid">
+    <article class="post-card wide">
+      <div>
+        <p class="post-tag">✦ Technology</p>
+        <h2 class="post-title">Why Every Developer Should Learn to Read Code They Didn't Write</h2>
+      </div>
+      <div class="post-content">
+        <p class="post-excerpt">Reading unfamiliar code is humbling, enlightening, and one of the fastest ways to grow as a developer. Here's how to make it a habit that actually sticks.</p>
+        <div class="post-footer">
+          <span>Mar 1, 2026 · 6 min</span>
+          <a href="#" class="read-link">Read →</a>
+        </div>
+      </div>
+    </article>
+    <article class="post-card">
+      <p class="post-tag">✦ Culture</p>
+      <h2 class="post-title">The New Nostalgia: Why We're All Craving Analog Again</h2>
+      <p class="post-excerpt">From vinyl records to handwritten letters, the analog revival isn't just aesthetic — it's a quiet rebellion against endless scroll.</p>
+      <div class="post-footer"><span>Feb 28, 2026 · 4 min</span><a href="#" class="read-link">Read →</a></div>
+    </article>
+    <article class="post-card">
+      <p class="post-tag">✦ Essays</p>
+      <h2 class="post-title">On the Courage of the Unfinished Project</h2>
+      <p class="post-excerpt">Leaving something incomplete isn't failure — sometimes it's the most honest thing you can do. A meditation on creative abandonment.</p>
+      <div class="post-footer"><span>Feb 25, 2026 · 5 min</span><a href="#" class="read-link">Read →</a></div>
+    </article>
+    <article class="post-card">
+      <p class="post-tag">✦ Design</p>
+      <h2 class="post-title">Negative Space Is the Point, Not the Absence of One</h2>
+      <p class="post-excerpt">Great design communicates as much through what it removes as what it keeps. A deep dive into emptiness as a deliberate choice.</p>
+      <div class="post-footer"><span>Feb 22, 2026 · 3 min</span><a href="#" class="read-link">Read →</a></div>
+    </article>
+    <article class="post-card">
+      <p class="post-tag">✦ Technology</p>
+      <h2 class="post-title">The Second Brain Myth: Why Your Notes App Won't Save You</h2>
+      <p class="post-excerpt">Productivity systems are seductive. But the real work of thinking can't be outsourced to Notion or Obsidian — it has to happen in your head.</p>
+      <div class="post-footer"><span>Feb 19, 2026 · 7 min</span><a href="#" class="read-link">Read →</a></div>
+    </article>
+    <article class="post-card">
+      <p class="post-tag">✦ Culture</p>
+      <h2 class="post-title">Reading in Public: A Lost Social Act Worth Reviving</h2>
+      <p class="post-excerpt">Once a signal of intellectualism, reading openly in cafés and parks has become a quiet act of resistance. Let's make it ordinary again.</p>
+      <div class="post-footer"><span>Feb 15, 2026 · 4 min</span><a href="#" class="read-link">Read →</a></div>
+    </article>
+  </main>
+
+  <section class="sidebar-strip">
+    <div>
+      <p class="subscribe-title">Words worth reading,<br>in your inbox.</p>
+      <p class="subscribe-sub">New essays every Tuesday. No spam, ever.</p>
+    </div>
+    <form class="subscribe-form" onsubmit="event.preventDefault(); this.querySelector('input').value=''; this.querySelector('button').textContent='✓ Done';">
+      <input type="email" placeholder="your@email.com" required/>
+      <button type="submit">Subscribe</button>
+    </form>
+    <div class="stat">
+      <div class="stat-num">12k</div>
+      <div class="stat-label">Readers</div>
+    </div>
+  </section>
+
+  <footer>
+    <p class="footer-copy">© 2026 Inkwell. A blog about ideas.</p>
+    <nav class="footer-nav">
+      <a href="#">Twitter</a>
+      <a href="#">RSS</a>
+      <a href="#">Archive</a>
+      <a href="#">Contact</a>
+    </nav>
+  </footer>
+
+  <!-- ═══════════ JS ═══════════ -->
+  <script>
+    let currentUser = null;
+
+    // ── OPEN / CLOSE MODAL ──
+    function openModal(tab) {
+      const overlay = document.getElementById('modalOverlay');
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      resetModal();
+      switchTab(tab || 'login');
+    }
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modalOverlay')) closeModal();
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    function resetModal() {
+      document.getElementById('modalSuccess').classList.remove('visible');
+      document.getElementById('modalTabs').style.display = '';
+      document.querySelectorAll('.modal-panel').forEach(p => { p.classList.remove('active'); p.style.display = ''; });
+      document.querySelectorAll('.form-error').forEach(e => e.classList.remove('visible'));
+      document.querySelectorAll('.form-group input').forEach(e => e.classList.remove('error'));
+    }
+
+    // ── TABS ──
+    function switchTab(tab) {
+      document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab' + cap(tab)).classList.add('active');
+      document.getElementById('panel' + cap(tab)).classList.add('active');
+    }
+    function showForgot() {
+      document.getElementById('modalTabs').style.display = 'none';
+      document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panelForgot').classList.add('active');
+    }
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    // ── VALIDATION ──
+    function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+    function setErr(errId, inputId, on) {
+      document.getElementById(errId).classList.toggle('visible', on);
+      if (inputId) document.getElementById(inputId).classList.toggle('error', on);
+    }
+
+    // ── LOGIN ──
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const pass  = document.getElementById('loginPassword').value;
+      let ok = true;
+      setErr('loginEmailErr', 'loginEmail', !isEmail(email)); if (!isEmail(email)) ok = false;
+      setErr('loginPassErr',  'loginPassword', !pass);        if (!pass) ok = false;
+      if (!ok) return;
+      const name = email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      loginUser({ name, email });
+    }
+
+    // ── SIGNUP ──
+    function handleSignup(e) {
+      e.preventDefault();
+      const first = document.getElementById('signupFirst').value.trim();
+      const last  = document.getElementById('signupLast').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const pass  = document.getElementById('signupPassword').value;
+      let ok = true;
+      setErr('signupFirstErr','signupFirst', !first);           if (!first) ok = false;
+      setErr('signupLastErr', 'signupLast',  !last);            if (!last)  ok = false;
+      setErr('signupEmailErr','signupEmail', !isEmail(email));  if (!isEmail(email)) ok = false;
+      setErr('signupPassErr', 'signupPassword', pass.length<8); if (pass.length<8)  ok = false;
+      if (!ok) return;
+      loginUser({ name: first + ' ' + last, email }, true);
+    }
+
+    // ── FORGOT ──
+    function handleForgot(e) {
+      e.preventDefault();
+      const email = document.getElementById('forgotEmail').value.trim();
+      setErr('forgotEmailErr','forgotEmail', !isEmail(email));
+      if (!isEmail(email)) return;
+      showSuccess('Check your inbox.', 'A reset link has been sent to ' + email);
+      setTimeout(closeModal, 2800);
+    }
+
+    // ── SOCIAL ──
+    function socialLogin(provider) {
+      loginUser({ name: 'Demo User', email: 'demo@inkwell.com' });
+    }
+
+    // ── LOGIN USER ──
+    function loginUser(user, isNew) {
+      currentUser = user;
+      showSuccess(
+        isNew ? 'Welcome aboard.' : 'Welcome back.',
+        'Signed in as ' + user.email
+      );
+      // Update header
+      document.getElementById('authButtons').style.display = 'none';
+      const menu = document.getElementById('userMenu');
+      menu.style.display = 'block';
+      const initials = user.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+      document.getElementById('userAvatar').textContent = initials;
+      document.getElementById('dropdownName').textContent = user.name;
+      document.getElementById('dropdownEmail').textContent = user.email;
+
+      setTimeout(closeModal, 2200);
+      setTimeout(() => showToast('Signed in as ' + user.name + ' ✦'), 2500);
+    }
+
+    // ── LOGOUT ──
+    function handleLogout() {
+      currentUser = null;
+      const menu = document.getElementById('userMenu');
+      menu.style.display = 'none';
+      menu.classList.remove('open');
+      document.getElementById('authButtons').style.display = 'flex';
+      showToast('You have been logged out.');
+    }
+
+    // ── USER DROPDOWN ──
+    function toggleUserMenu() {
+      document.getElementById('userMenu').classList.toggle('open');
+    }
+    document.addEventListener('click', e => {
+      const m = document.getElementById('userMenu');
+      if (m && !m.contains(e.target)) m.classList.remove('open');
+    });
+
+    // ── SUCCESS PANEL ──
+    function showSuccess(title, sub) {
+      document.getElementById('modalTabs').style.display = 'none';
+      document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('successTitle').textContent = title;
+      document.getElementById('successSub').textContent   = sub;
+      document.getElementById('modalSuccess').classList.add('visible');
+    }
+
+    // ── TOAST ──
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3200);
+    }
+  </script>
+</body>
+</html>
