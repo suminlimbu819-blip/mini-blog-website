@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inkwell — A Mini Blog</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #f5f0e8; --ink: #1a1612; --rust: #c0440e;
+      --tan: #d4c5a9;   --muted: #7a6f63; --border: #ddd5c4;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--cream); color: var(--ink);
+      font-family: 'DM Sans', sans-serif; font-weight: 300;
+      line-height: 1.7; overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: 0.5;
+    }
+
+    /* HEADER */
+    header {
+      border-bottom: 1px solid var(--border); padding: 0 5vw;
+      position: sticky; top: 0; background: rgba(245,240,232,0.92);
+      backdrop-filter: blur(12px); z-index: 100;
+      display: flex; align-items: center; justify-content: space-between; height: 64px;
+    }
+    .logo { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-style: italic; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; cursor: pointer; }
+    .logo span { color: var(--rust); }
+    .header-right { display: flex; align-items: center; gap: 2rem; }
+    nav { display: flex; gap: 2rem; }
+    nav a { text-decoration: none; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); transition: color 0.2s; cursor: pointer; }
+    nav a:hover, nav a.active { color: var(--rust); }
+
+    /* AUTH BUTTONS */
+    .auth-btns { display: flex; gap: 0.5rem; }
+    .btn-login {
+      padding: 0.45rem 1.1rem; border: 1px solid var(--border); background: transparent;
+      color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+      letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: background 0.2s, color 0.2s;
+    }
+    .btn-login:hover { background: var(--ink); color: var(--cream); }
+    .btn-signup {
+      padding: 0.45rem 1.1rem; border: none; background: var(--rust); color: white;
+      font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+      letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-signup:hover { opacity: 0.85; }
+
+    /* USER MENU */
+    .user-menu { position: relative; }
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--rust); color: white;
+      font-size: 0.85rem; font-weight: 500; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: opacity 0.2s;
+    }
+    .user-avatar:hover { opacity: 0.85; }
+    .user-dropdown {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      background: var(--cream); border: 1px solid var(--border); min-width: 190px;
+      box-shadow: 0 8px 32px rgba(26,22,18,0.12); display: none; animation: dropIn 0.18s ease;
+    }
+    @keyframes dropIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .user-menu.open .user-dropdown { display: block; }
+    .user-dropdown-header { padding: 1rem 1.2rem 0.75rem; border-bottom: 1px solid var(--border); }
+    .user-dropdown-name { font-weight: 500; font-size: 0.9rem; }
+    .user-dropdown-email { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+    .user-dropdown a, .drop-link {
+      display: block; width: 100%; text-align: left; padding: 0.65rem 1.2rem;
+      font-size: 0.82rem; color: var(--ink); text-decoration: none;
+      background: none; border: none; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.15s;
+    }
+    .user-dropdown a:hover, .drop-link:hover { background: rgba(192,68,14,0.07); }
+    .drop-divider { height: 1px; background: var(--border); margin: 0.25rem 0; }
+    .drop-logout { color: var(--rust) !important; }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(26,22,18,0.55);
+      backdrop-filter: blur(4px); z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--cream); width: 100%; max-width: 420px; padding: 2.5rem;
+      position: relative; transform: translateY(20px) scale(0.98);
+      transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 24px 64px rgba(26,22,18,0.2);
+    }
+    .modal-overlay.active .modal { transform: translateY(0) scale(1); }
+    .modal-close {
+      position: absolute; top: 1.25rem; right: 1.25rem; background: none; border: none;
+      font-size: 1.2rem; color: var(--muted); cursor: pointer; line-height: 1; transition: color 0.2s;
+    }
+    .modal-close:hover { color: var(--rust); }
+    .modal-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+    .modal-tab {
+      flex: 1; padding: 0.75rem 0; background: none; border: none;
+      font-family: 'DM Sans', sans-serif; font-size: 0.78rem;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s, border-color 0.2s;
+    }
+    .modal-tab.active { color: var(--rust); border-bottom-color: var(--rust); }
+    .modal-panel { display: none; }
+    .modal-panel.active { display: block; }
+    .modal-eyebrow { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-style: italic; margin-bottom: 0.4rem; }
+    .modal-sub { font-size: 0.83rem; color: var(--muted); margin-bottom: 1.75rem; }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; }
+    .form-group input {
+      width: 100%; padding: 0.75rem 1rem; background: white; border: 1px solid var(--border);
+      color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: var(--rust); }
+    .form-group input.error { border-color: var(--rust); }
+    .form-error { font-size: 0.73rem; color: var(--rust); margin-top: 0.3rem; display: none; }
+    .form-error.visible { display: block; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .modal-submit {
+      width: 100%; padding: 0.85rem; background: var(--ink); color: var(--cream); border: none;
+      font-family: 'DM Sans', sans-serif; font-size: 0.78rem; letter-spacing: 0.12em;
+      text-transform: uppercase; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s, transform 0.15s;
+    }
+    .modal-submit:hover { background: var(--rust); transform: translateY(-1px); }
+    .modal-forgot {
+      display: block; text-align: right; font-size: 0.72rem; color: var(--muted);
+      text-decoration: none; margin-top: -0.5rem; margin-bottom: 1rem; cursor: pointer; transition: color 0.2s;
+    }
+    .modal-forgot:hover { color: var(--rust); }
+    .modal-divider { display: flex; align-items: center; gap: 1rem; margin: 1.25rem 0; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.08em; }
+    .modal-divider::before, .modal-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .btn-social {
+      width: 100%; padding: 0.75rem; background: white; border: 1px solid var(--border);
+      color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 0.6rem; transition: background 0.2s; margin-bottom: 0.6rem;
+    }
+    .btn-social:hover { background: #f0ece4; }
+    .btn-social svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .modal-success { display: none; text-align: center; padding: 2rem 0; }
+    .modal-success.visible { display: block; }
+    .success-icon { font-size: 2.5rem; margin-bottom: 1rem; color: var(--rust); }
+    .success-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-style: italic; margin-bottom: 0.5rem; }
+    .success-sub { font-size: 0.85rem; color: var(--muted); }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--ink); color: var(--cream); padding: 0.75rem 1.5rem;
+      font-size: 0.82rem; letter-spacing: 0.04em; z-index: 9000;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* PAGE WRAPPER */
+    .page { display: none; animation: fadeUp 0.6s ease both; }
+    .page.active { display: block; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+
+    /* HOME PAGE */
+    .hero {
+      padding: 80px 5vw 60px; border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: end;
+    }
+    .hero-label { font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--rust); margin-bottom: 1rem; }
+    .hero-title { font-family: 'Playfair Display', serif; font-size: clamp(2.8rem,5vw,4.5rem); font-weight: 900; line-height: 1.1; letter-spacing: -0.03em; }
+    .hero-title em { font-style: italic; color: var(--rust); }
+    .hero-meta { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 1.5rem; }
+    .hero-excerpt { font-size: 1.05rem; color: var(--muted); max-width: 420px; margin-bottom: 2rem; line-height: 1.8; }
+    .btn { display: inline-block; padding: 0.75rem 1.75rem; background: var(--ink); color: var(--cream); text-decoration: none; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; transition: background 0.2s, transform 0.15s; cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; }
+    .btn:hover { background: var(--rust); transform: translateY(-2px); }
+    .divider { display: flex; align-items: center; gap: 1.5rem; padding: 2.5rem 5vw; border-bottom: 1px solid var(--border); }
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+    .divider-text { font-family: 'DM Mono', monospace; font-size: 0.68rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .posts-grid { padding: 0 5vw 80px; display: grid; grid-template-columns: repeat(3,1fr); gap: 0; border-left: 1px solid var(--border); }
+    .post-card { padding: 2.5rem 2rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.25s; }
+    .post-card:hover { background: rgba(192,68,14,0.04); }
+    .post-tag { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--rust); margin-bottom: 0.75rem; }
+    .post-title { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.75rem; letter-spacing: -0.01em; }
+    .post-excerpt { font-size: 0.88rem; color: var(--muted); line-height: 1.75; margin-bottom: 1.5rem; }
+    .post-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; border-top: 1px solid var(--border); padding-top: 1rem; }
+    .read-link { color: var(--ink); text-decoration: none; font-weight: 500; position: relative; cursor: pointer; }
+    .read-link::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 1px; background: var(--rust); transform: scaleX(0); transform-origin: left; transition: transform 0.25s; }
+    .read-link:hover::after { transform: scaleX(1); }
+    .post-card.wide { grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+    .post-card.wide .post-title { font-size: 1.8rem; }
+    .post-card.wide .post-content { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+
+    /* ── ESSAYS PAGE ── */
+    .essays-hero {
+      padding: 60px 5vw 50px; border-bottom: 1px solid var(--border);
+      background: var(--ink); color: var(--cream);
+    }
+    .essays-hero-label { font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rust); margin-bottom: 1rem; }
+    .essays-hero-title { font-family: 'Playfair Display', serif; font-size: clamp(2.4rem,4.5vw,4rem); font-weight: 900; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 1rem; }
+    .essays-hero-title em { font-style: italic; color: var(--rust); }
+    .essays-hero-sub { font-size: 1rem; opacity: 0.55; max-width: 520px; }
+
+    /* CATEGORY FILTER TABS */
+    .category-bar {
+      padding: 0 5vw; border-bottom: 1px solid var(--border);
+      display: flex; gap: 0; overflow-x: auto;
+    }
+    .cat-tab {
+      padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent;
+      font-family: 'DM Sans', sans-serif; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); cursor: pointer; white-space: nowrap; margin-bottom: -1px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .cat-tab:hover { color: var(--ink); }
+    .cat-tab.active { color: var(--rust); border-bottom-color: var(--rust); }
+
+    /* CATEGORY SECTIONS */
+    .essays-content { padding: 0 5vw 80px; }
+    .essay-category-section { display: none; animation: fadeUp 0.45s ease both; }
+    .essay-category-section.active { display: block; }
+
+    .category-intro { padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: end; }
+    .cat-intro-tag { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rust); margin-bottom: 0.75rem; }
+    .cat-intro-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; line-height: 1.2; }
+    .cat-intro-desc { font-size: 0.92rem; color: var(--muted); line-height: 1.8; }
+
+    /* ESSAYS LIST */
+    .essays-list { display: grid; grid-template-columns: 1fr; gap: 0; border-left: 1px solid var(--border); }
+    .essay-item {
+      padding: 2rem 2rem 2rem 2rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: center;
+      cursor: pointer; transition: background 0.25s;
+    }
+    .essay-item:hover { background: rgba(192,68,14,0.04); }
+    .essay-item-left {}
+    .essay-item-num { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.5rem; }
+    .essay-item-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; margin-bottom: 0.5rem; }
+    .essay-item-excerpt { font-size: 0.85rem; color: var(--muted); line-height: 1.7; max-width: 600px; }
+    .essay-item-meta { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 0.75rem; }
+    .essay-arrow { font-size: 1.5rem; color: var(--border); transition: color 0.25s, transform 0.25s; }
+    .essay-item:hover .essay-arrow { color: var(--rust); transform: translateX(4px); }
+
+    /* FEATURED ESSAY CARD (top of each section) */
+    .essay-featured {
+      padding: 2.5rem 2rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background 0.25s; background: rgba(192,68,14,0.03);
+    }
+    .essay-featured:hover { background: rgba(192,68,14,0.07); }
+    .essay-featured-label { font-family: 'DM Mono', monospace; font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rust); margin-bottom: 0.75rem; }
+    .essay-featured-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 900; line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 1rem; }
+    .essay-featured-excerpt { font-size: 0.95rem; color: var(--muted); line-height: 1.8; max-width: 680px; margin-bottom: 1.5rem; }
+    .essay-featured-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--border); padding-top: 1rem; }
+
+    /* SUBSCRIBE */
+    .sidebar-strip { padding: 2.5rem 5vw; background: var(--ink); color: var(--cream); display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 3rem; align-items: center; }
+    .subscribe-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-style: italic; margin-bottom: 0.5rem; }
+    .subscribe-sub { font-size: 0.85rem; opacity: 0.6; }
+    .subscribe-form { display: flex; gap: 0; }
+    .subscribe-form input { flex: 1; padding: 0.75rem 1rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-right: none; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none; }
+    .subscribe-form input::placeholder { opacity: 0.4; }
+    .subscribe-form button { padding: 0.75rem 1.25rem; background: var(--rust); color: white; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; }
+    .subscribe-form button:hover { opacity: 0.85; }
+    .stat { text-align: center; }
+    .stat-num { font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 900; color: var(--rust); }
+    .stat-label { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; }
+
+    /* FOOTER */
+    footer { padding: 2.5rem 5vw; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .footer-copy { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }
+    .footer-nav { display: flex; gap: 1.5rem; }
+    .footer-nav a { font-size: 0.75rem; color: var(--muted); text-decoration: none; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.2s; cursor: pointer; }
+    .footer-nav a:hover { color: var(--rust); }
+
+    /* SINGLE ESSAY PAGE */
+    .essay-page-header { padding: 60px 5vw 50px; border-bottom: 1px solid var(--border); max-width: 800px; margin: 0 auto; }
+    .essay-back { font-family: 'DM Mono', monospace; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); cursor: pointer; transition: color 0.2s; margin-bottom: 2rem; display: inline-block; }
+    .essay-back:hover { color: var(--rust); }
+    .essay-page-tag { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rust); margin-bottom: 1rem; }
+    .essay-page-title { font-family: 'Playfair Display', serif; font-size: clamp(2rem,4vw,3.2rem); font-weight: 900; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 1rem; }
+    .essay-page-meta { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .essay-page-body { max-width: 680px; margin: 0 auto; padding: 3rem 5vw 80px; }
+    .essay-page-body p { font-size: 1.05rem; line-height: 1.85; color: var(--ink); margin-bottom: 1.75rem; }
+    .essay-page-body p:first-child::first-letter { font-family: 'Playfair Display', serif; font-size: 3.5rem; font-weight: 900; float: left; line-height: 0.85; margin-right: 0.08em; margin-top: 0.08em; color: var(--rust); }
+    .essay-page-body h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; margin: 2.5rem 0 1rem; letter-spacing: -0.01em; }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; gap: 2rem; }
+      .posts-grid { grid-template-columns: 1fr 1fr; }
+      .post-card.wide { grid-column: span 2; }
+      .sidebar-strip { grid-template-columns: 1fr; gap: 2rem; }
+      .category-intro { grid-template-columns: 1fr; }
+      .essay-item { grid-template-columns: 1fr; }
+      .essay-arrow { display: none; }
+    }
+    @media (max-width: 600px) {
+      .posts-grid { grid-template-columns: 1fr; border-left: none; }
+      .post-card.wide { grid-column: span 1; grid-template-columns: 1fr; }
+      footer { flex-direction: column; gap: 1rem; text-align: center; }
+      nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <a class="logo" onclick="showPage('home')">Ink<span>well</span></a>
+    <div class="header-right">
+      <nav>
+        <a id="navEssays" onclick="showPage('essays')">Essays</a>
+        <a onclick="showPage('home')">Culture</a>
+        <a onclick="showPage('home')">Tech</a>
+        <a onclick="showPage('home')">About</a>
+      </nav>
+
+      <div class="auth-btns" id="authButtons">
+        <button class="btn-login" onclick="openModal('login')">Log In</button>
+        <button class="btn-signup" onclick="openModal('signup')">Sign Up</button>
+      </div>
+
+      <div class="user-menu" id="userMenu" style="display:none;">
+        <button class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">?</button>
+        <div class="user-dropdown" id="userDropdown">
+          <div class="user-dropdown-header">
+            <div class="user-dropdown-name" id="dropdownName"></div>
+            <div class="user-dropdown-email" id="dropdownEmail"></div>
+          </div>
+          <a href="#">My Profile</a>
+          <a href="#">Saved Posts</a>
+          <a href="#">Settings</a>
+          <div class="drop-divider"></div>
+          <button class="drop-link drop-logout" onclick="handleLogout()">Log Out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+    <div class="modal" role="dialog" aria-modal="true">
+      <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+      <div class="modal-tabs" id="modalTabs">
+        <button class="modal-tab active" id="tabLogin"  onclick="switchTab('login')">Log In</button>
+        <button class="modal-tab"        id="tabSignup" onclick="switchTab('signup')">Sign Up</button>
+      </div>
+      <div class="modal-panel active" id="panelLogin">
+        <p class="modal-eyebrow">Welcome back.</p>
+        <p class="modal-sub">Sign in to continue reading Inkwell.</p>
+        <button class="btn-social" onclick="socialLogin('Google')">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Continue with Google
+        </button>
+        <button class="btn-social" onclick="socialLogin('GitHub')">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          Continue with GitHub
+        </button>
+        <div class="modal-divider">or email</div>
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email"/>
+            <p class="form-error" id="loginEmailErr">Please enter a valid email.</p>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password"/>
+            <p class="form-error" id="loginPassErr">Password is required.</p>
+          </div>
+          <a class="modal-forgot" onclick="showForgot()">Forgot your password?</a>
+          <button type="submit" class="modal-submit">Log In →</button>
+        </form>
+      </div>
+      <div class="modal-panel" id="panelSignup">
+        <p class="modal-eyebrow">Join Inkwell.</p>
+        <p class="modal-sub">Create a free account and start reading thoughtfully.</p>
+        <button class="btn-social" onclick="socialLogin('Google')">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Continue with Google
+        </button>
+        <div class="modal-divider">or email</div>
+        <form id="signupForm" onsubmit="handleSignup(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="signupFirst">First Name</label>
+              <input type="text" id="signupFirst" placeholder="Mara" autocomplete="given-name"/>
+              <p class="form-error" id="signupFirstErr">Required.</p>
+            </div>
+            <div class="form-group">
+              <label for="signupLast">Last Name</label>
+              <input type="text" id="signupLast" placeholder="Voss" autocomplete="family-name"/>
+              <p class="form-error" id="signupLastErr">Required.</p>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="signupEmail">Email</label>
+            <input type="email" id="signupEmail" placeholder="you@example.com" autocomplete="email"/>
+            <p class="form-error" id="signupEmailErr">Please enter a valid email.</p>
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">Password</label>
+            <input type="password" id="signupPassword" placeholder="Min. 8 characters" autocomplete="new-password"/>
+            <p class="form-error" id="signupPassErr">Must be at least 8 characters.</p>
+          </div>
+          <button type="submit" class="modal-submit">Create Account →</button>
+        </form>
+      </div>
+      <div class="modal-panel" id="panelForgot">
+        <p class="modal-eyebrow">Reset password.</p>
+        <p class="modal-sub">Enter your email and we'll send a reset link.</p>
+        <form id="forgotForm" onsubmit="handleForgot(event)">
+          <div class="form-group">
+            <label for="forgotEmail">Email</label>
+            <input type="email" id="forgotEmail" placeholder="you@example.com"/>
+            <p class="form-error" id="forgotEmailErr">Please enter a valid email.</p>
+          </div>
+          <button type="submit" class="modal-submit">Send Reset Link →</button>
+        </form>
+        <br/>
+        <a class="modal-forgot" style="text-align:left; display:inline-block; margin-top:0.5rem;" onclick="switchTab('login')">← Back to Log In</a>
+      </div>
+      <div class="modal-success" id="modalSuccess">
+        <div class="success-icon">✦</div>
+        <p class="success-title" id="successTitle">You're in.</p>
+        <p class="success-sub"   id="successSub">Welcome back to Inkwell.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ═══════════ HOME PAGE ═══════════ -->
+  <div class="page active" id="pageHome">
+    <section class="hero">
+      <div class="hero-left">
+        <p class="hero-label">Featured Essay — Issue No. 42</p>
+        <h1 class="hero-title">The Quiet Art of <em>Slow</em> Thinking</h1>
+        <p class="hero-meta">By Mara Voss &nbsp;·&nbsp; Feb 20, 2026 &nbsp;·&nbsp; 8 min read</p>
+      </div>
+      <div class="hero-right">
+        <p class="hero-excerpt">In a world obsessed with instant answers and hot takes, some of the most original minds have rediscovered an old practice: sitting with an idea long enough to actually understand it.</p>
+        <button class="btn" onclick="openEssay('slow-thinking')">Read the Essay →</button>
+      </div>
+    </section>
+
+    <div class="divider">
+      <div class="divider-line"></div>
+      <span class="divider-text">Latest from the blog</span>
+      <div class="divider-line"></div>
+    </div>
+
+    <main class="posts-grid">
+      <article class="post-card wide" onclick="openEssay('read-code')">
+        <div>
+          <p class="post-tag">✦ Technology</p>
+          <h2 class="post-title">Why Every Developer Should Learn to Read Code They Didn't Write</h2>
+        </div>
+        <div class="post-content">
+          <p class="post-excerpt">Reading unfamiliar code is humbling, enlightening, and one of the fastest ways to grow as a developer. Here's how to make it a habit that actually sticks.</p>
+          <div class="post-footer">
+            <span>Mar 1, 2026 · 6 min</span>
+            <span class="read-link">Read →</span>
+          </div>
+        </div>
+      </article>
+      <article class="post-card" onclick="openEssay('analog')">
+        <p class="post-tag">✦ Culture</p>
+        <h2 class="post-title">The New Nostalgia: Why We're All Craving Analog Again</h2>
+        <p class="post-excerpt">From vinyl records to handwritten letters, the analog revival isn't just aesthetic — it's a quiet rebellion against endless scroll.</p>
+        <div class="post-footer"><span>Feb 28, 2026 · 4 min</span><span class="read-link">Read →</span></div>
+      </article>
+      <article class="post-card" onclick="openEssay('unfinished')">
+        <p class="post-tag">✦ Essays</p>
+        <h2 class="post-title">On the Courage of the Unfinished Project</h2>
+        <p class="post-excerpt">Leaving something incomplete isn't failure — sometimes it's the most honest thing you can do. A meditation on creative abandonment.</p>
+        <div class="post-footer"><span>Feb 25, 2026 · 5 min</span><span class="read-link">Read →</span></div>
+      </article>
+      <article class="post-card" onclick="openEssay('negative-space')">
+        <p class="post-tag">✦ Design</p>
+        <h2 class="post-title">Negative Space Is the Point, Not the Absence of One</h2>
+        <p class="post-excerpt">Great design communicates as much through what it removes as what it keeps. A deep dive into emptiness as a deliberate choice.</p>
+        <div class="post-footer"><span>Feb 22, 2026 · 3 min</span><span class="read-link">Read →</span></div>
+      </article>
+      <article class="post-card" onclick="openEssay('second-brain')">
+        <p class="post-tag">✦ Technology</p>
+        <h2 class="post-title">The Second Brain Myth: Why Your Notes App Won't Save You</h2>
+        <p class="post-excerpt">Productivity systems are seductive. But the real work of thinking can't be outsourced to Notion or Obsidian — it has to happen in your head.</p>
+        <div class="post-footer"><span>Feb 19, 2026 · 7 min</span><span class="read-link">Read →</span></div>
+      </article>
+      <article class="post-card" onclick="openEssay('reading-public')">
+        <p class="post-tag">✦ Culture</p>
+        <h2 class="post-title">Reading in Public: A Lost Social Act Worth Reviving</h2>
+        <p class="post-excerpt">Once a signal of intellectualism, reading openly in cafés and parks has become a quiet act of resistance. Let's make it ordinary again.</p>
+        <div class="post-footer"><span>Feb 15, 2026 · 4 min</span><span class="read-link">Read →</span></div>
+      </article>
+    </main>
+
+    <section class="sidebar-strip">
+      <div>
+        <p class="subscribe-title">Words worth reading,<br>in your inbox.</p>
+        <p class="subscribe-sub">New essays every Tuesday. No spam, ever.</p>
+      </div>
+      <form class="subscribe-form" onsubmit="event.preventDefault(); this.querySelector('input').value=''; this.querySelector('button').textContent='✓ Done';">
+        <input type="email" placeholder="your@email.com" required/>
+        <button type="submit">Subscribe</button>
+      </form>
+      <div class="stat">
+        <div class="stat-num">12k</div>
+        <div class="stat-label">Readers</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════ ESSAYS PAGE ═══════════ -->
+  <div class="page" id="pageEssays">
+    <div class="essays-hero">
+      <p class="essays-hero-label">✦ The Essay Archive</p>
+      <h1 class="essays-hero-title">Ideas worth <em>sitting with</em></h1>
+      <p class="essays-hero-sub">Long-form writing across technology, culture, design, and the human condition. Sorted by what you're in the mood for.</p>
+    </div>
+
+    <!-- CATEGORY FILTER TABS -->
+    <div class="category-bar">
+      <button class="cat-tab active" onclick="switchCategory('all')">All Essays</button>
+      <button class="cat-tab" onclick="switchCategory('technology')">Technology</button>
+      <button class="cat-tab" onclick="switchCategory('culture')">Culture</button>
+      <button class="cat-tab" onclick="switchCategory('design')">Design</button>
+      <button class="cat-tab" onclick="switchCategory('philosophy')">Philosophy</button>
+    </div>
+
+    <div class="essays-content">
+
+      <!-- ALL ESSAYS -->
+      <div class="essay-category-section active" id="cat-all">
+        <div class="essay-featured" onclick="openEssay('slow-thinking')">
+          <p class="essay-featured-label">✦ Editor's Pick · Featured Essay</p>
+          <h2 class="essay-featured-title">The Quiet Art of Slow Thinking</h2>
+          <p class="essay-featured-excerpt">In a world obsessed with instant answers and hot takes, some of the most original minds have rediscovered an old practice: sitting with an idea long enough to actually understand it.</p>
+          <div class="essay-featured-footer">
+            <span>By Mara Voss &nbsp;·&nbsp; Feb 20, 2026 &nbsp;·&nbsp; 8 min read</span>
+            <span class="read-link">Read Essay →</span>
+          </div>
+        </div>
+        <div class="essays-list">
+          <div class="essay-item" onclick="openEssay('read-code')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">Technology &nbsp;·&nbsp; 6 min</p>
+              <h3 class="essay-item-title">Why Every Developer Should Learn to Read Code They Didn't Write</h3>
+              <p class="essay-item-excerpt">Reading unfamiliar code is humbling, enlightening, and one of the fastest ways to grow as a developer.</p>
+              <p class="essay-item-meta">By J. Torres &nbsp;·&nbsp; Mar 1, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('analog')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">Culture &nbsp;·&nbsp; 4 min</p>
+              <h3 class="essay-item-title">The New Nostalgia: Why We're All Craving Analog Again</h3>
+              <p class="essay-item-excerpt">From vinyl records to handwritten letters, the analog revival isn't just aesthetic.</p>
+              <p class="essay-item-meta">By Suki Park &nbsp;·&nbsp; Feb 28, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('unfinished')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">Philosophy &nbsp;·&nbsp; 5 min</p>
+              <h3 class="essay-item-title">On the Courage of the Unfinished Project</h3>
+              <p class="essay-item-excerpt">Leaving something incomplete isn't failure — sometimes it's the most honest thing you can do.</p>
+              <p class="essay-item-meta">By Mara Voss &nbsp;·&nbsp; Feb 25, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('negative-space')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">Design &nbsp;·&nbsp; 3 min</p>
+              <h3 class="essay-item-title">Negative Space Is the Point, Not the Absence of One</h3>
+              <p class="essay-item-excerpt">Great design communicates as much through what it removes as what it keeps.</p>
+              <p class="essay-item-meta">By L. Chen &nbsp;·&nbsp; Feb 22, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('second-brain')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">Technology &nbsp;·&nbsp; 7 min</p>
+              <h3 class="essay-item-title">The Second Brain Myth: Why Your Notes App Won't Save You</h3>
+              <p class="essay-item-excerpt">Productivity systems are seductive. But the real work of thinking can't be outsourced.</p>
+              <p class="essay-item-meta">By R. Okafor &nbsp;·&nbsp; Feb 19, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('reading-public')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">Culture &nbsp;·&nbsp; 4 min</p>
+              <h3 class="essay-item-title">Reading in Public: A Lost Social Act Worth Reviving</h3>
+              <p class="essay-item-excerpt">Once a signal of intellectualism, reading openly has become a quiet act of resistance.</p>
+              <p class="essay-item-meta">By Suki Park &nbsp;·&nbsp; Feb 15, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TECHNOLOGY -->
+      <div class="essay-category-section" id="cat-technology">
+        <div class="category-intro">
+          <div>
+            <p class="cat-intro-tag">✦ Category</p>
+            <h2 class="cat-intro-title">Technology</h2>
+          </div>
+          <p class="cat-intro-desc">Critical thinking about software, tools, and the digital systems quietly shaping how we think and work. Not hype — honest inquiry.</p>
+        </div>
+        <div class="essays-list">
+          <div class="essay-item" onclick="openEssay('read-code')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">6 min read</p>
+              <h3 class="essay-item-title">Why Every Developer Should Learn to Read Code They Didn't Write</h3>
+              <p class="essay-item-excerpt">Reading unfamiliar code is humbling, enlightening, and one of the fastest ways to grow as a developer. Here's how to make it a habit that actually sticks.</p>
+              <p class="essay-item-meta">By J. Torres &nbsp;·&nbsp; Mar 1, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('second-brain')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">7 min read</p>
+              <h3 class="essay-item-title">The Second Brain Myth: Why Your Notes App Won't Save You</h3>
+              <p class="essay-item-excerpt">Productivity systems are seductive. But the real work of thinking can't be outsourced to Notion or Obsidian — it has to happen in your head.</p>
+              <p class="essay-item-meta">By R. Okafor &nbsp;·&nbsp; Feb 19, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('slow-thinking')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">8 min read</p>
+              <h3 class="essay-item-title">The Quiet Art of Slow Thinking</h3>
+              <p class="essay-item-excerpt">In a world obsessed with instant answers, some of the most original minds have rediscovered the practice of sitting with an idea.</p>
+              <p class="essay-item-meta">By Mara Voss &nbsp;·&nbsp; Feb 20, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CULTURE -->
+      <div class="essay-category-section" id="cat-culture">
+        <div class="category-intro">
+          <div>
+            <p class="cat-intro-tag">✦ Category</p>
+            <h2 class="cat-intro-title">Culture</h2>
+          </div>
+          <p class="cat-intro-desc">Writing about how we live, what we value, and the invisible forces shaping modern taste. Curious, not prescriptive.</p>
+        </div>
+        <div class="essays-list">
+          <div class="essay-item" onclick="openEssay('analog')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">4 min read</p>
+              <h3 class="essay-item-title">The New Nostalgia: Why We're All Craving Analog Again</h3>
+              <p class="essay-item-excerpt">From vinyl records to handwritten letters, the analog revival isn't just aesthetic — it's a quiet rebellion against endless scroll.</p>
+              <p class="essay-item-meta">By Suki Park &nbsp;·&nbsp; Feb 28, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('reading-public')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">4 min read</p>
+              <h3 class="essay-item-title">Reading in Public: A Lost Social Act Worth Reviving</h3>
+              <p class="essay-item-excerpt">Once a signal of intellectualism, reading openly in cafés and parks has become a quiet act of resistance. Let's make it ordinary again.</p>
+              <p class="essay-item-meta">By Suki Park &nbsp;·&nbsp; Feb 15, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DESIGN -->
+      <div class="essay-category-section" id="cat-design">
+        <div class="category-intro">
+          <div>
+            <p class="cat-intro-tag">✦ Category</p>
+            <h2 class="cat-intro-title">Design</h2>
+          </div>
+          <p class="cat-intro-desc">Essays on visual thinking, craft, and the quiet decisions that separate good work from forgettable work.</p>
+        </div>
+        <div class="essays-list">
+          <div class="essay-item" onclick="openEssay('negative-space')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">3 min read</p>
+              <h3 class="essay-item-title">Negative Space Is the Point, Not the Absence of One</h3>
+              <p class="essay-item-excerpt">Great design communicates as much through what it removes as what it keeps. A deep dive into emptiness as a deliberate choice.</p>
+              <p class="essay-item-meta">By L. Chen &nbsp;·&nbsp; Feb 22, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHILOSOPHY -->
+      <div class="essay-category-section" id="cat-philosophy">
+        <div class="category-intro">
+          <div>
+            <p class="cat-intro-tag">✦ Category</p>
+            <h2 class="cat-intro-title">Philosophy</h2>
+          </div>
+          <p class="cat-intro-desc">Big questions, small observations, and the ideas that refuse to leave you alone at 2am.</p>
+        </div>
+        <div class="essays-list">
+          <div class="essay-item" onclick="openEssay('unfinished')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">5 min read</p>
+              <h3 class="essay-item-title">On the Courage of the Unfinished Project</h3>
+              <p class="essay-item-excerpt">Leaving something incomplete isn't failure — sometimes it's the most honest thing you can do. A meditation on creative abandonment.</p>
+              <p class="essay-item-meta">By Mara Voss &nbsp;·&nbsp; Feb 25, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+          <div class="essay-item" onclick="openEssay('slow-thinking')">
+            <div class="essay-item-left">
+              <p class="essay-item-num">8 min read</p>
+              <h3 class="essay-item-title">The Quiet Art of Slow Thinking</h3>
+              <p class="essay-item-excerpt">In a world obsessed with instant answers and hot takes, some of the most original minds have rediscovered an old practice.</p>
+              <p class="essay-item-meta">By Mara Voss &nbsp;·&nbsp; Feb 20, 2026</p>
+            </div>
+            <span class="essay-arrow">→</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /essays-content -->
+  </div>
+
+  <!-- ═══════════ SINGLE ESSAY PAGE ═══════════ -->
+  <div class="page" id="pageEssayDetail">
+    <div class="essay-page-header">
+      <span class="essay-back" id="essayBackBtn" onclick="goBackFromEssay()">← Back</span>
+      <p class="essay-page-tag" id="essayDetailTag"></p>
+      <h1 class="essay-page-title" id="essayDetailTitle"></h1>
+      <p class="essay-page-meta" id="essayDetailMeta"></p>
+    </div>
+    <div class="essay-page-body" id="essayDetailBody"></div>
+  </div>
+
+  <!-- SHARED FOOTER (always visible) -->
+  <footer>
+    <p class="footer-copy">© 2026 Inkwell. A blog about ideas.</p>
+    <nav class="footer-nav">
+      <a onclick="showPage('home')">Home</a>
+      <a onclick="showPage('essays')">Essays</a>
+      <a href="#">Archive</a>
+      <a href="#">Contact</a>
+    </nav>
+  </footer>
+
+  <script>
+    // ── ESSAY DATA ──
+    const essays = {
+      'slow-thinking': {
+        tag: '✦ Philosophy · 8 min read',
+        title: 'The Quiet Art of Slow Thinking',
+        meta: 'By Mara Voss · Feb 20, 2026',
+        body: `<p>There is a particular pleasure in thinking slowly. Not the slow thinking of confusion — the circling, stuck kind — but the deliberate kind. The kind where you hold an idea at arm's length and turn it over, looking for the seam you missed the first time.</p>
+        <h2>The Speed Trap</h2>
+        <p>We are rewarded, constantly, for thinking fast. The meeting rewards the person who speaks first. Social media rewards the quickest take. Even our tools — autocomplete, AI assistants, search — are optimized to get us to an answer before we've finished forming the question.</p>
+        <p>None of this is inherently bad. Fast thinking is pattern recognition, and pattern recognition is useful. But it's also where most of our errors live. The wrong frame applied quickly. The familiar answer mistaken for the correct one.</p>
+        <h2>The Practice</h2>
+        <p>Slow thinking is not mystical. It's a practice, and like most practices, it requires friction. It requires putting the phone down. Sitting with a question instead of searching it. Writing by hand, sometimes, because the slower pace enforces a kind of discipline that typing doesn't.</p>
+        <p>The writers and thinkers who produce genuinely original work share one trait more than any other: they are willing to be uncertain for longer than is comfortable. They let the question stay open. They resist the resolution.</p>
+        <p>The most useful thing you can do with an important idea is wait before you decide what to think about it. Give it a week. Come back. It will look different, and you will be better equipped to understand why.</p>`
+      },
+      'read-code': {
+        tag: '✦ Technology · 6 min read',
+        title: 'Why Every Developer Should Learn to Read Code They Didn\'t Write',
+        meta: 'By J. Torres · Mar 1, 2026',
+        body: `<p>The most underrated skill in software development isn't writing clean code. It's reading someone else's messy code and understanding it anyway.</p>
+        <h2>Why We Avoid It</h2>
+        <p>Reading unfamiliar code is uncomfortable. There's no dopamine hit. No pull request merged, no test suite going green. You just sit with a file open, following a function call into another file, into another, building a mental model that might collapse the moment you reach the next abstraction layer.</p>
+        <p>It's humbling. And that's precisely why it works so well as a learning tool.</p>
+        <h2>What You Actually Learn</h2>
+        <p>When you read code written by someone more experienced, you encounter decisions you wouldn't have made — and you have to figure out why they made them. This reverse-engineering of intent is one of the fastest paths to genuine skill growth.</p>
+        <p>Start with open-source projects you already use. Find a bug report, read the fix. Follow the thread. You'll be surprised how quickly unfamiliar codebases start to feel navigable. The trick is patience — give yourself permission to not understand everything at once.</p>`
+      },
+      'analog': {
+        tag: '✦ Culture · 4 min read',
+        title: 'The New Nostalgia: Why We\'re All Craving Analog Again',
+        meta: 'By Suki Park · Feb 28, 2026',
+        body: `<p>Something is happening in the margins of digital culture. Vinyl sales have surpassed CD sales for the second year running. Film cameras are back-ordered. Moleskines are in every independent bookshop window. People are writing letters again — actual letters, on paper, sent through actual post offices.</p>
+        <h2>More Than Aesthetics</h2>
+        <p>It would be easy to dismiss this as mere aesthetics — the warm glow of grain and imperfection as a reaction against the too-clean crispness of digital everything. And aesthetics are part of it. But I think something deeper is going on.</p>
+        <p>Analog objects have edges. A vinyl record has a side A and a side B. A journal has pages that end. A film roll has 36 exposures and then it's done. These constraints, which once felt like limitations, now feel like gifts. In a world of infinite scroll, the finite is profoundly comforting.</p>
+        <h2>The Rebellion Is Quiet</h2>
+        <p>Nobody is posting manifestos about going analog. That's what makes this cultural moment interesting. It's quiet, individual, and slightly embarrassed about itself. Which might be exactly why it's real. The things people actually value rarely announce themselves.</p>`
+      },
+      'unfinished': {
+        tag: '✦ Philosophy · 5 min read',
+        title: 'On the Courage of the Unfinished Project',
+        meta: 'By Mara Voss · Feb 25, 2026',
+        body: `<p>I have a folder on my hard drive called "Abandoned." It contains seventeen projects I started and did not finish. Novels, essays, apps, a podcast that made it to four episodes. I used to feel ashamed of this folder. I don't anymore.</p>
+        <h2>What Finishing Actually Means</h2>
+        <p>We treat finishing as the only valid outcome of starting. But this ignores something important: a project is a tool for thinking. You begin it to figure something out. Sometimes, once you've figured it out, the project has done its job. Forcing it to completion can actually undo the thinking — you end up serving the artifact instead of the idea.</p>
+        <p>The things in my "Abandoned" folder aren't failures. They're records of questions I was asking. Most of them I answered. Some I found unanswerable. A few I realized were the wrong questions entirely. That's valuable. That's the work.</p>
+        <h2>The Permission You Need</h2>
+        <p>You don't need to finish everything you start. You need to be honest about why you're stopping. Stopping because something is hard is different from stopping because something is done. Learn to tell the difference, and the folder of abandoned things becomes something to be proud of rather than ashamed of.</p>`
+      },
+      'negative-space': {
+        tag: '✦ Design · 3 min read',
+        title: 'Negative Space Is the Point, Not the Absence of One',
+        meta: 'By L. Chen · Feb 22, 2026',
+        body: `<p>Beginning designers fill space. They are anxious about emptiness, so they add: another element, another color, another line of text. This is natural. It's also where almost every design mistake lives.</p>
+        <h2>The Function of Nothing</h2>
+        <p>Negative space — the empty areas between and around elements — is not background. It's foreground. It creates the rhythm that lets the eye move. It defines the shape of the positive elements by contrast. It tells the viewer where to look and, crucially, where to rest.</p>
+        <p>A page dense with content isn't communicating more. It's communicating less, because it's giving the eye nowhere to anchor. Attention without rest becomes indifference.</p>
+        <h2>How to Use It</h2>
+        <p>The discipline is removal. Once you think a design is done, take something away. Then take something else away. Stop when removing anything further would break the communication. What remains is the design. What you removed was decoration. The two are not the same thing, and knowing the difference is most of what design skill actually is.</p>`
+      },
+      'second-brain': {
+        tag: '✦ Technology · 7 min read',
+        title: 'The Second Brain Myth: Why Your Notes App Won\'t Save You',
+        meta: 'By R. Okafor · Feb 19, 2026',
+        body: `<p>The "second brain" concept is appealing for the same reason most productivity systems are appealing: it promises that the right external system will compensate for the limitations of the internal one. If only your notes were organized correctly, linked properly, tagged and retrieved efficiently — then you'd finally be able to think clearly.</p>
+        <h2>What a Notes App Actually Does</h2>
+        <p>Notes apps are good at storing information. They're poor at generating insight. The confusion happens when we mistake storage for thinking. A perfectly organized Obsidian vault is not a thinking tool. It's a filing cabinet. A very sophisticated filing cabinet, but still a cabinet.</p>
+        <p>Actual thinking — the kind that produces original ideas — happens through friction, not organization. It happens when ideas that don't obviously belong together are forced into contact and something new emerges. You can't automate that. You can't tag your way to it.</p>
+        <h2>What Actually Works</h2>
+        <p>Writing by hand. Talking ideas through. Reading widely and slowly. Sitting with a blank page and a single question. These practices are uncomfortable and unscalable, which is why the productivity industry ignores them in favor of selling you another app. But they work, because they force the thinking to happen inside your head — which is the only place it can.</p>`
+      },
+      'reading-public': {
+        tag: '✦ Culture · 4 min read',
+        title: 'Reading in Public: A Lost Social Act Worth Reviving',
+        meta: 'By Suki Park · Feb 15, 2026',
+        body: `<p>There used to be a social language around reading in public. You could tell something about a person by what they were reading on the subway. Strangers would comment. Conversations would start. The book was a kind of visible interior life, an invitation to connection.</p>
+        <h2>What Replaced It</h2>
+        <p>Now we read on phones, and you cannot tell a person reading literary fiction from a person doomscrolling. The visibility is gone. The social signal is gone. And so, mostly, is the reading — because the same device that might carry a book also carries everything competing for attention.</p>
+        <h2>The Case for Going Visible</h2>
+        <p>Reading a physical book in public is, right now, a mildly countercultural act. It signals something — not superiority, but a kind of deliberateness. A willingness to be visibly absorbed. To not be available. To do one thing instead of seventeen.</p>
+        <p>This is worth recovering. Not for the signal itself, but because the habit that creates the signal — slow, focused, single-tasked reading — is one of the few genuine antidotes to a culture of distraction. Bring the book. Read in public. Let people see you doing it.</p>`
+      }
+    };
+
+    let previousPage = 'home';
+    let currentPage = 'home';
+
+    // ── PAGE NAVIGATION ──
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page' + cap(pageId)).classList.add('active');
+
+      // Update nav active state
+      document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+      if (pageId === 'essays') document.getElementById('navEssays').classList.add('active');
+
+      previousPage = currentPage;
+      currentPage = pageId;
+      window.scrollTo(0, 0);
+    }
+
+    function openEssay(id) {
+      const essay = essays[id];
+      if (!essay) return;
+      document.getElementById('essayDetailTag').textContent = essay.tag;
+      document.getElementById('essayDetailTitle').textContent = essay.title;
+      document.getElementById('essayDetailMeta').textContent = essay.meta;
+      document.getElementById('essayDetailBody').innerHTML = essay.body;
+      // Set back button label
+      document.getElementById('essayBackBtn').textContent = currentPage === 'essays' ? '← Back to Essays' : '← Back to Home';
+      showPage('essayDetail');
+    }
+
+    function goBackFromEssay() {
+      showPage(previousPage === 'essayDetail' ? 'home' : previousPage);
+    }
+
+    // ── CATEGORY TABS ──
+    function switchCategory(cat) {
+      document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.essay-category-section').forEach(s => s.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('cat-' + cat).classList.add('active');
+      window.scrollTo(0, 0);
+    }
+
+    // ── MODAL ──
+    let currentUser = null;
+    function openModal(tab) {
+      const overlay = document.getElementById('modalOverlay');
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      resetModal();
+      switchTab(tab || 'login');
+    }
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modalOverlay')) closeModal();
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    function resetModal() {
+      document.getElementById('modalSuccess').classList.remove('visible');
+      document.getElementById('modalTabs').style.display = '';
+      document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.form-error').forEach(e => e.classList.remove('visible'));
+      document.querySelectorAll('.form-group input').forEach(e => e.classList.remove('error'));
+    }
+    function switchTab(tab) {
+      document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab' + cap(tab)).classList.add('active');
+      document.getElementById('panel' + cap(tab)).classList.add('active');
+    }
+    function showForgot() {
+      document.getElementById('modalTabs').style.display = 'none';
+      document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panelForgot').classList.add('active');
+    }
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+    function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+    function setErr(errId, inputId, on) {
+      document.getElementById(errId).classList.toggle('visible', on);
+      if (inputId) document.getElementById(inputId).classList.toggle('error', on);
+    }
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const pass  = document.getElementById('loginPassword').value;
+      let ok = true;
+      setErr('loginEmailErr', 'loginEmail', !isEmail(email)); if (!isEmail(email)) ok = false;
+      setErr('loginPassErr',  'loginPassword', !pass);        if (!pass) ok = false;
+      if (!ok) return;
+      const name = email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      loginUser({ name, email });
+    }
+    function handleSignup(e) {
+      e.preventDefault();
+      const first = document.getElementById('signupFirst').value.trim();
+      const last  = document.getElementById('signupLast').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const pass  = document.getElementById('signupPassword').value;
+      let ok = true;
+      setErr('signupFirstErr','signupFirst', !first);           if (!first) ok = false;
+      setErr('signupLastErr', 'signupLast',  !last);            if (!last)  ok = false;
+      setErr('signupEmailErr','signupEmail', !isEmail(email));  if (!isEmail(email)) ok = false;
+      setErr('signupPassErr', 'signupPassword', pass.length<8); if (pass.length<8)  ok = false;
+      if (!ok) return;
+      loginUser({ name: first + ' ' + last, email }, true);
+    }
+    function handleForgot(e) {
+      e.preventDefault();
+      const email = document.getElementById('forgotEmail').value.trim();
+      setErr('forgotEmailErr','forgotEmail', !isEmail(email));
+      if (!isEmail(email)) return;
+      showSuccess('Check your inbox.', 'A reset link has been sent to ' + email);
+      setTimeout(closeModal, 2800);
+    }
+    function socialLogin(provider) { loginUser({ name: 'Demo User', email: 'demo@inkwell.com' }); }
+    function loginUser(user, isNew) {
+      currentUser = user;
+      showSuccess(isNew ? 'Welcome aboard.' : 'Welcome back.', 'Signed in as ' + user.email);
+      document.getElementById('authButtons').style.display = 'none';
+      const menu = document.getElementById('userMenu');
+      menu.style.display = 'block';
+      const initials = user.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+      document.getElementById('userAvatar').textContent = initials;
+      document.getElementById('dropdownName').textContent = user.name;
+      document.getElementById('dropdownEmail').textContent = user.email;
+      setTimeout(closeModal, 2200);
+      setTimeout(() => showToast('Signed in as ' + user.name + ' ✦'), 2500);
+    }
+    function handleLogout() {
+      currentUser = null;
+      const menu = document.getElementById('userMenu');
+      menu.style.display = 'none';
+      menu.classList.remove('open');
+      document.getElementById('authButtons').style.display = 'flex';
+      showToast('You have been logged out.');
+    }
+    function toggleUserMenu() { document.getElementById('userMenu').classList.toggle('open'); }
+    document.addEventListener('click', e => {
+      const m = document.getElementById('userMenu');
+      if (m && !m.contains(e.target)) m.classList.remove('open');
+    });
+    function showSuccess(title, sub) {
+      document.getElementById('modalTabs').style.display = 'none';
+      document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('successTitle').textContent = title;
+      document.getElementById('successSub').textContent   = sub;
+      document.getElementById('modalSuccess').classList.add('visible');
+    }
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3200);
+    }
+  </script>
+</body>
+</html>
